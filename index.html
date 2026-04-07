@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RCNS Swat - Computer Components Test</title>
+
+<style>
+:root { --royal-blue:#003366; --gold:#FFD700; }
+body { font-family:'Segoe UI',sans-serif;background:#f0f2f5;margin:0;display:flex;flex-direction:column;align-items:center;min-height:100vh;}
+header { background:var(--royal-blue);color:var(--gold);width:100%;text-align:center;padding:25px 0;box-shadow:0 4px 10px rgba(0,0,0,0.2);}
+.quiz-container { background:white;padding:30px;border-radius:15px;box-shadow:0 10px 25px rgba(0,0,0,0.1);width:90%;max-width:650px;margin-top:30px;position:relative;}
+#timer-bar { height:5px;background:#d9534f;width:100%;position:absolute;top:0;left:0;border-radius:15px 15px 0 0;transition:width 1s linear;}
+#timer-text { float:right;font-weight:bold;color:#d9534f;}
+.btn { display:block;width:100%;padding:14px;margin:10px 0;border:2px solid var(--royal-blue);border-radius:8px;cursor:pointer;transition:0.3s;font-size:16px;background:white;text-align:left;}
+.btn:hover { background:var(--royal-blue);color:white;}
+.btn:disabled { background:#ccc;cursor:not-allowed;}
+.hide { display:none;}
+input { padding:12px;width:95%;margin-bottom:20px;border:1px solid #ccc;border-radius:5px;font-size:16px;display:block;}
+.start-btn { background:var(--royal-blue);color:white;border:none;padding:15px;width:100%;border-radius:8px;cursor:pointer;font-size:18px;}
+.result-box { text-align:center; }
+.grade { font-size:1.3rem;font-weight:bold;margin-top:10px; }
+</style>
+</head>
+<body>
+
+<header>
+<h1>ROYAL COLLEGE OF NURSING SCIENCE SWAT</h1>
+<p>1st Semester Quiz - Components of Computer</p>
+</header>
+
+<div class="quiz-container" id="setup-box">
+<h2 style="color:var(--royal-blue);">Student Registration</h2>
+<p>Please enter your details to start the examination.</p>
+<input type="text" id="student-name" placeholder="Full Name" required>
+<input type="text" id="roll-no" placeholder="Roll Number" required>
+<button class="start-btn" onclick="startQuiz()">Start Examination</button>
+</div>
+
+<div class="quiz-container hide" id="quiz-box">
+<div id="timer-bar"></div>
+<div style="margin-bottom:20px;">
+<span id="question-number" style="font-weight:bold;">Question 1/20</span>
+<span id="timer-text">15s</span>
+</div>
+<h2 id="question" style="min-height:60px;"></h2>
+<div id="answer-buttons"></div>
+</div>
+
+<div class="quiz-container hide result-box" id="result-box">
+<h2 style="color:var(--royal-blue);">Examination Result</h2>
+<p id="score-text" style="font-size:1.5rem;font-weight:bold;"></p>
+<p id="percentage-text"></p>
+<p id="grade-text" class="grade"></p>
+<p id="status-text">Uploading results to database...</p>
+<button class="btn" onclick="location.reload()" style="text-align:center;">Close & Finish</button>
+</div>
+
+<script>
+// 🔴 PASTE YOUR GOOGLE SCRIPT URL HERE
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw7voE2IOy5jXEAono2lDat8IFTGmT1ugneezerTugGrMKKDny58fHuvn8NO4UxJyVTWA/exec";
+
+const questions = [
+  {q:"What is the physical part of a computer that can be seen and touched?",a:["Software","Hardware","Data","User"],c:1},
+  {q:"Which of the following is NOT a hardware component?",a:["Monitor","Keyboard","MS Word","Mouse"],c:2},
+  {q:"A set of instructions given to the computer is called:",a:["Hardware","Hard disk","Software","Input device"],c:2},
+  {q:"What is the main purpose of input devices?",a:["To print data","To enter data into the computer","To store data","To produce sound"],c:1},
+  {q:"Which of these is a common input device?",a:["Printer","Monitor","Keyboard","Speaker"],c:2},
+  {q:"In which part of the computer does all the processing happen?",a:["RAM","System Unit","Monitor","Hard Drive"],c:1},
+  {q:"The main circuit board inside the System Unit is called:",a:["Hard Board","Motherboard","Sound Card","Keypad"],c:1},
+  {q:"What does CPU stand for?",a:["Central Program Unit","Computer Processing Unit","Central Processing Unit","Control Public Unit"],c:2},
+  {q:"Which component is known as the 'Brain' of the computer?",a:["Monitor","CPU","Mouse","Scanner"],c:1},
+  {q:"What is the role of the ALU in a computer?",a:["To save data","Mathematical calculations and comparisons","To take input only","To display images"],c:1},
+  {q:"Which unit controls the working of all other parts of the computer?",a:["ALU","Control Unit","Input Unit","RAM"],c:1},
+  {q:"What is the function of the Memory Unit (RAM)?",a:["Permanent storage","Temporary storage of data and instructions","Printing paper","Removing viruses"],c:1},
+  {q:"Devices used to provide information to the user are called:",a:["Input devices","Output devices","Storage devices","Manual devices"],c:1},
+  {q:"Which device is used to see soft copy output?",a:["Printer","Scanner","Monitor","Microphone"],c:2},
+  {q:"Which device is used to get hard copy (on paper) output?",a:["Mouse","Printer","Monitor","Keyboard"],c:1},
+  {q:"What is used to store data permanently?",a:["RAM","Storage Devices","ALU","Input Unit"],c:1},
+  {q:"Which is the largest storage device in a computer?",a:["Floppy Disk","RAM","Hard Disk","CD"],c:2},
+  {q:"What does CD-ROM stand for?",a:["Computer Data Read Only Memory","Compact Disc Read Only Memory","Common Disc Read Memory","Cool Disc Random Memory"],c:1},
+  {q:"A USB Flash Drive is commonly known as a:",a:["Hard Drive","Floppy","Pen Drive","Monitor"],c:2},
+  {q:"Which device can function as both Input and Output?",a:["Printer","Keyboard","Modem/Touch Screen","Speaker"],c:2}
+];
+
+let current=0,score=0,timer,timeLeft=15,studentName="",rollNo="";
+
+// Prevent back button
+window.history.pushState(null,null,location.href);
+window.onpopstate=function(){history.go(1);};
+
+function startQuiz(){
+    studentName = document.getElementById("student-name").value.trim();
+    rollNo = document.getElementById("roll-no").value.trim();
+
+    if(studentName === "" || rollNo === ""){
+        alert("Please enter both Name and Roll Number");
+        return;
+    }
+
+    // 🛑 BLOCK REPEAT ENTRY
+    if(localStorage.getItem("quiz_done_" + rollNo)){
+        alert("This Roll Number has already completed the test. Duplicate entries are not allowed.");
+        return;
+    }
+
+    document.getElementById("setup-box").classList.add("hide");
+    document.getElementById("quiz-box").classList.remove("hide");
+    showQuestion();
+}
+
+function showQuestion(){
+    resetTimer();
+    let q=questions[current];
+    document.getElementById("question-number").innerText=`Question ${current+1}/20`;
+    document.getElementById("question").innerText=q.q;
+    let container=document.getElementById("answer-buttons");
+    container.innerHTML="";
+    q.a.forEach((ans,i)=>{
+        let btn=document.createElement("button");
+        btn.innerText=ans;
+        btn.classList.add("btn");
+        btn.onclick=()=>selectAnswer(i);
+        container.appendChild(btn);
+    });
+}
+
+function resetTimer(){
+    clearInterval(timer);
+    timeLeft=15;
+    updateTimer();
+    timer=setInterval(()=>{
+        timeLeft--;
+        updateTimer();
+        if(timeLeft<=0) nextQuestion();
+    },1000);
+}
+
+function updateTimer(){
+    document.getElementById("timer-text").innerText=timeLeft+"s";
+    document.getElementById("timer-bar").style.width=(timeLeft/15)*100+"%";
+}
+
+function selectAnswer(i){
+    clearInterval(timer);
+    document.querySelectorAll(".btn").forEach(b=>b.disabled=true);
+    if(i===questions[current].c) score++;
+    setTimeout(nextQuestion,500);
+}
+
+function nextQuestion(){
+    clearInterval(timer);
+    current++;
+    if(current<questions.length) showQuestion();
+    else finishQuiz();
+}
+
+function finishQuiz(){
+    // 🛑 Save completion status for this specific Roll Number
+    localStorage.setItem("quiz_done_" + rollNo, "true");
+
+    document.getElementById("quiz-box").classList.add("hide");
+    document.getElementById("result-box").classList.remove("hide");
+
+    let percentage=(score/20)*100;
+    let grade="";
+    if(percentage>=80) grade="A";
+    else if(percentage>=70) grade="B";
+    else if(percentage>=60) grade="C";
+    else if(percentage>=50) grade="D";
+    else grade="Fail";
+
+    document.getElementById("score-text").innerText=`${studentName} (Roll No: ${rollNo}), Score: ${score}/20`;
+    document.getElementById("percentage-text").innerText=`Percentage: ${percentage}%`;
+    document.getElementById("grade-text").innerText=`Grade: ${grade}`;
+
+    sendToSheet(percentage,grade);
+}
+
+function sendToSheet(percentage,grade){
+    if(SCRIPT_URL === ""){
+        document.getElementById("status-text").innerText="Google Sheet not connected.";
+        return;
+    }
+
+    fetch(SCRIPT_URL,{
+        method:"POST",
+        mode:"no-cors",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            name:studentName,
+            roll:rollNo,
+            score:score,
+            percentage:percentage,
+            grade:grade
+        })
+    })
+    .then(()=>{
+        document.getElementById("status-text").innerText="Result Saved Successfully!";
+    })
+    .catch(()=>{
+        document.getElementById("status-text").innerText="Error syncing with server.";
+    });
+}
+</script>
+</body>
+</html>
